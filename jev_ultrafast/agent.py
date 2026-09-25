@@ -9,6 +9,18 @@ from .model import action_space, choose, field_context, field_text
 from .questions import MAX_STEPS
 
 
+def _observe(browser, screenshots=False, tries=8, delay=0.35):
+    """SPIKE PATCH: observe lai khi trang dang dieu huong."""
+    last = None
+    for _ in range(tries):
+        try:
+            return browser.observe(screenshot=screenshots)
+        except StalePage as exc:
+            last = exc
+            time.sleep(delay)
+    raise last
+
+
 class Agent:
     def __init__(self, url, goals, *, record_dir=None, screenshots=False):
         task = goals.strip() if isinstance(goals, str) else "\n".join(goals).strip()
@@ -59,7 +71,7 @@ class Agent:
             except StalePage:
                 state["decision"] = None
                 state["status"] = "ready"
-                state["page"] = state["browser"].observe(screenshot=self.screenshots)
+                state["page"] = _observe(state["browser"], self.screenshots)
                 state["elapsed_ms"] = round((time.perf_counter() - state["started_at"]) * 1000)
                 return self.snapshot()
         elif name == "predict":
@@ -68,7 +80,7 @@ class Agent:
             if state["started_at"] is None:
                 state["started_at"] = time.perf_counter()
             if not state["browser"].fresh(state["page"]):
-                state["page"] = state["browser"].observe(screenshot=self.screenshots)
+                state["page"] = _observe(state["browser"], self.screenshots)
             state["decision"] = None
             if state["status"] in {"done", "blocked"}:
                 raise ValueError("This run has stopped. Start a fresh demo.")
@@ -139,7 +151,7 @@ class Agent:
                     "elapsed_ms": state["elapsed_ms"],
                 }
             )
-            state["page"] = state["browser"].observe(screenshot=self.screenshots)
+            state["page"] = _observe(state["browser"], self.screenshots)
             state["elapsed_ms"] = round((time.perf_counter() - state["started_at"]) * 1000)
             state["history"][-1].update(
                 page_changed=state["page"]["fingerprint"] != page["fingerprint"],
@@ -162,7 +174,10 @@ class Agent:
 
     def run(self):
         while self.state["status"] not in {"done", "blocked"}:
-            yield self.command("tick")
+            try:
+                yield self.command("tick")
+            except StalePage:
+                continue
 
     def close(self):
         self.browser.close()

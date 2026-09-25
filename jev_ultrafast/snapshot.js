@@ -8,7 +8,7 @@
   for (const [id,e] of cache.nodes) if (!e.isConnected) cache.nodes.delete(id);
   const safe = e => !['password','file','hidden'].includes(e.type);
   const visible = e => !e.closest('[aria-hidden="true"],[inert]') &&
-    e.checkVisibility({checkOpacity:true,checkVisibilityCSS:true});
+    e.checkVisibility({checkOpacity:false,checkVisibilityCSS:true});
   const name = (e,seen=new Set()) => {
     if (!e || seen.has(e)) return '';
     seen.add(e);
